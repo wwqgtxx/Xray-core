@@ -78,6 +78,8 @@ func (c *SniffingConfig) Build() (*proxyman.SniffingConfig, error) {
 				p = append(p, "http")
 			case "tls", "https", "ssl":
 				p = append(p, "tls")
+			case "quic":
+				p = append(p, "quic")
 			case "fakedns":
 				p = append(p, "fakedns")
 			case "fakedns+others":
@@ -411,6 +413,7 @@ type Config struct {
 	Transport       *TransportConfig       `json:"transport"`
 	Policy          *PolicyConfig          `json:"policy"`
 	API             *APIConfig             `json:"api"`
+	Metrics         *MetricsConfig         `json:"metrics"`
 	Stats           *StatsConfig           `json:"stats"`
 	Reverse         *ReverseConfig         `json:"reverse"`
 	FakeDNS         *FakeDNSConfig         `json:"fakeDns"`
@@ -460,6 +463,9 @@ func (c *Config) Override(o *Config, fn string) {
 	}
 	if o.API != nil {
 		c.API = o.API
+	}
+	if o.Metrics != nil {
+		c.Metrics = o.Metrics
 	}
 	if o.Stats != nil {
 		c.Stats = o.Stats
@@ -566,7 +572,13 @@ func (c *Config) Build() (*core.Config, error) {
 		}
 		config.App = append(config.App, serial.ToTypedMessage(apiConf))
 	}
-
+	if c.Metrics != nil {
+		metricsConf, err := c.Metrics.Build()
+		if err != nil {
+			return nil, err
+		}
+		config.App = append(config.App, serial.ToTypedMessage(metricsConf))
+	}
 	if c.Stats != nil {
 		statsConf, err := c.Stats.Build()
 		if err != nil {
@@ -622,7 +634,7 @@ func (c *Config) Build() (*core.Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		config.App = append(config.App, serial.ToTypedMessage(r))
+		config.App = append([]*serial.TypedMessage{serial.ToTypedMessage(r)}, config.App...)
 	}
 
 	if c.Observatory != nil {
